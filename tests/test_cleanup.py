@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from src import cleanup
-from src.cleanup import CleanResult, DockerTarget, PathTarget, _parse_docker_size, dir_size
+from src.cleanup import TARGETS, CleanResult, DockerTarget, PathTarget, _parse_docker_size, dir_size
 
 
 def test_dir_size_empty_dir(tmp_path):
@@ -185,3 +185,22 @@ def test_docker_clean_reports_prune_failure(fake_docker_binary, monkeypatch):
 
 def test_docker_target_is_risky():
     assert DockerTarget().risky is True
+
+
+def test_targets_keys_are_unique():
+    keys = [t.key for t in TARGETS]
+    assert len(keys) == len(set(keys))
+
+
+def test_targets_paths_all_live_under_home():
+    # Guard: a registry typo must never point deletion outside $HOME.
+    home = Path.home().resolve()
+    for target in TARGETS:
+        for raw in getattr(target, "paths", ()):
+            expanded = Path(raw).expanduser().resolve()
+            assert expanded.is_relative_to(home), f"{target.key}: {raw}"
+
+
+def test_targets_risky_flags_match_spec():
+    risky = {t.key for t in TARGETS if t.risky}
+    assert risky == {"docker", "claude_vm"}

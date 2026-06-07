@@ -167,3 +167,36 @@ class DockerTarget:
             tail = lines[-1] if lines else "unknown error"
             return CleanResult(freed=0, failed=(f"docker prune: {tail}",))
         return CleanResult(freed=before)
+
+
+TARGETS = (
+    PathTarget(key="npm", label="npm cache", paths=("~/.npm/_cacache",)),
+    PathTarget(
+        key="dev_caches",
+        label="Dev caches",
+        paths=(
+            "~/Library/Caches/pip",
+            "~/Library/Caches/pnpm",
+            "~/Library/Caches/CocoaPods",
+            "~/Library/Caches/ms-playwright",
+            "~/Library/Caches/Cypress",
+            "~/.cache/uv",
+        ),
+    ),
+    PathTarget(
+        key="app_caches",
+        label="App caches",
+        paths=(
+            "~/Library/Caches/ru.keepcoder.Telegram",
+            "~/Library/Caches/com.spotify.client",
+            "~/Library/Caches/com.todesktop.230313mzl4w4u92.ShipIt",
+        ),
+    ),
+    DockerTarget(),
+    PathTarget(
+        key="claude_vm",
+        label="Claude VM",
+        paths=("~/Library/Application Support/Claude/vm_bundles",),
+        risky=True,
+    ),
+)
