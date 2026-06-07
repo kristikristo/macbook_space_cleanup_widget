@@ -91,6 +91,7 @@ _DOCKER_CANDIDATES = (
     "/opt/homebrew/bin/docker",
     "/usr/local/bin/docker",
     "/usr/bin/docker",
+    os.path.expanduser("~/.docker/bin/docker"),
 )
 
 
@@ -136,16 +137,21 @@ class DockerTarget:
             line = line.strip()
             if not line:
                 continue
-            row = json.loads(line)
-            if row["Type"] == "Local Volumes":
-                continue  # we never prune volumes
-            total += _parse_docker_size(row["Reclaimable"])
+            try:
+                row = json.loads(line)
+                if row["Type"] == "Local Volumes":
+                    continue  # we never prune volumes
+                total += _parse_docker_size(row["Reclaimable"])
+            except (json.JSONDecodeError, KeyError, ValueError):
+                return None  # unrecognized df output: treat docker as unavailable
         return total
 
     def clean(self) -> CleanResult:
         binary = self._binary()
         if binary is None:
             return CleanResult(freed=0, failed=("docker binary not found",))
+        # freed is the pre-prune reclaimable estimate: unlike PathTarget we
+        # can't re-measure a delta after pruning (df would just show 0).
         before = self.measure() or 0
         try:
             proc = subprocess.run(

@@ -152,6 +152,13 @@ def test_docker_measure_none_when_daemon_down(fake_docker_binary, monkeypatch):
     assert DockerTarget().measure() is None
 
 
+def test_docker_measure_none_on_unrecognized_output(fake_docker_binary, monkeypatch):
+    monkeypatch.setattr(
+        cleanup.subprocess, "run", _fake_run(stdout="WARNING: upgrade your docker\n")
+    )
+    assert DockerTarget().measure() is None
+
+
 def test_docker_clean_returns_freed_on_success(fake_docker_binary, monkeypatch):
     monkeypatch.setattr(
         cleanup.subprocess, "run", _fake_run(stdout=DOCKER_DF_JSON)
