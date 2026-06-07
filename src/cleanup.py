@@ -1,7 +1,9 @@
 """Pure cleanup-target logic. No rumps imports — trivially testable."""
 
+import json
 import os
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -83,3 +85,79 @@ class PathTarget:
             freed += size_before - size_after
 
         return CleanResult(freed=freed, failed=tuple(failed))
+
+
+_DOCKER_CANDIDATES = (
+    "/opt/homebrew/bin/docker",
+    "/usr/local/bin/docker",
+    "/usr/bin/docker",
+)
+
+
+@dataclass(frozen=True)
+class DockerTarget:
+    """Cleanup target backed by `docker system prune -af`.
+
+    Reclaims unused images and build cache. NEVER volumes — database
+    data lives there.
+    """
+
+    key: str = "docker"
+    label: str = "Docker"
+    risky: bool = True
+
+    @staticmethod
+    def _binary() -> str | None:
+        # GUI apps get a minimal PATH, so probe known install locations.
+        for candidate in _DOCKER_CANDIDATES:
+            if os.path.exists(candidate):
+                return candidate
+        return None
+
+    def measure(self) -> int | None:
+        """Reclaimable bytes, or None when docker is missing or not running."""
+        binary = self._binary()
+        if binary is None:
+            return None
+        try:
+            proc = subprocess.run(
+                [binary, "system", "df", "--format", "json"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if proc.returncode != 0:
+            return None
+
+        total = 0
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            if row["Type"] == "Local Volumes":
+                continue  # we never prune volumes
+            total += _parse_docker_size(row["Reclaimable"])
+        return total
+
+    def clean(self) -> CleanResult:
+        binary = self._binary()
+        if binary is None:
+            return CleanResult(freed=0, failed=("docker binary not found",))
+        before = self.measure() or 0
+        try:
+            proc = subprocess.run(
+                [binary, "system", "prune", "-af"],
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return CleanResult(freed=0, failed=(f"docker prune: {exc}",))
+        if proc.returncode != 0:
+            lines = proc.stderr.strip().splitlines()
+            tail = lines[-1] if lines else "unknown error"
+            return CleanResult(freed=0, failed=(f"docker prune: {tail}",))
+        return CleanResult(freed=before)

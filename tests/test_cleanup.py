@@ -1,8 +1,10 @@
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from src.cleanup import CleanResult, PathTarget, _parse_docker_size, dir_size
+from src import cleanup
+from src.cleanup import CleanResult, DockerTarget, PathTarget, _parse_docker_size, dir_size
 
 
 def test_dir_size_empty_dir(tmp_path):
@@ -98,3 +100,81 @@ def test_parse_docker_size(text, expected):
 def test_parse_docker_size_rejects_garbage():
     with pytest.raises(ValueError):
         _parse_docker_size("lots")
+
+
+# Real output captured from `docker system df --format json` (2026-06-07).
+DOCKER_DF_JSON = """\
+{"Active":"14","Reclaimable":"6.663GB (96%)","Size":"6.936GB","TotalCount":"24","Type":"Images"}
+{"Active":"13","Reclaimable":"616.9kB (11%)","Size":"5.54MB","TotalCount":"14","Type":"Containers"}
+{"Active":"3","Reclaimable":"367.9MB (53%)","Size":"682.1MB","TotalCount":"8","Type":"Local Volumes"}
+{"Active":"0","Reclaimable":"2.923GB","Size":"3.116GB","TotalCount":"201","Type":"Build Cache"}
+"""
+
+
+@pytest.fixture
+def fake_docker_binary(tmp_path, monkeypatch):
+    binary = tmp_path / "docker"
+    binary.write_text("#!/bin/sh\n")
+    monkeypatch.setattr(cleanup, "_DOCKER_CANDIDATES", (str(binary),))
+    return binary
+
+
+def _fake_run(returncode=0, stdout="", stderr=""):
+    def run(cmd, **kwargs):
+        return subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
+
+    return run
+
+
+def test_docker_measure_sums_reclaimable_excluding_volumes(
+    fake_docker_binary, monkeypatch
+):
+    monkeypatch.setattr(
+        cleanup.subprocess, "run", _fake_run(stdout=DOCKER_DF_JSON)
+    )
+    # 6.663GB + 616.9kB + 2.923GB; the 367.9MB of volumes must NOT count.
+    assert DockerTarget().measure() == 9586616900
+
+
+def test_docker_measure_none_when_binary_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        cleanup, "_DOCKER_CANDIDATES", (str(tmp_path / "no-docker"),)
+    )
+    assert DockerTarget().measure() is None
+
+
+def test_docker_measure_none_when_daemon_down(fake_docker_binary, monkeypatch):
+    monkeypatch.setattr(
+        cleanup.subprocess,
+        "run",
+        _fake_run(returncode=1, stderr="Cannot connect to the Docker daemon"),
+    )
+    assert DockerTarget().measure() is None
+
+
+def test_docker_clean_returns_freed_on_success(fake_docker_binary, monkeypatch):
+    monkeypatch.setattr(
+        cleanup.subprocess, "run", _fake_run(stdout=DOCKER_DF_JSON)
+    )
+    result = DockerTarget().clean()
+    assert result.freed == 9586616900
+    assert result.failed == ()
+
+
+def test_docker_clean_reports_prune_failure(fake_docker_binary, monkeypatch):
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        if "df" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, DOCKER_DF_JSON, "")
+        return subprocess.CompletedProcess(cmd, 1, "", "boom: prune exploded")
+
+    monkeypatch.setattr(cleanup.subprocess, "run", run)
+    result = DockerTarget().clean()
+    assert result.freed == 0
+    assert "prune exploded" in result.failed[0]
+
+
+def test_docker_target_is_risky():
+    assert DockerTarget().risky is True
