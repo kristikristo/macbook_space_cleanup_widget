@@ -16,7 +16,7 @@ def _parse_docker_size(text: str) -> int:
     value = text.split(" ")[0]  # drop the '(53%)' suffix
     for unit in ("TB", "GB", "MB", "kB", "B"):  # longest suffix first
         if value.endswith(unit):
-            return int(float(value[: -len(unit)]) * _DOCKER_SIZE_UNITS[unit])
+            return round(float(value[: -len(unit)]) * _DOCKER_SIZE_UNITS[unit])
     raise ValueError(f"unrecognized docker size: {text!r}")
 
 
