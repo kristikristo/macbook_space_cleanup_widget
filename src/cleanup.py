@@ -57,14 +57,13 @@ class PathTarget:
         freed = 0
         failed: list[str] = []
 
+        def _collect(_func, failed_path, _exc):
+            failed.append(str(failed_path))
+
         for path in self._expanded():
             if not path.exists():
                 continue
             size_before = dir_size(path)
-
-            def _collect(_func, failed_path, _exc):
-                failed.append(str(failed_path))
-
             shutil.rmtree(path, onexc=_collect)
             size_after = dir_size(path) if path.exists() else 0
             freed += size_before - size_after

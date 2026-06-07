@@ -65,6 +65,7 @@ def test_path_target_clean_missing_path_is_noop(tmp_path):
     assert target.clean() == CleanResult(freed=0, failed=())
 
 
+# Note: this test is a no-op when run as root (chmod has no effect for root).
 def test_path_target_clean_reports_failures_without_raising(tmp_path):
     cache = tmp_path / "cache"
     locked = cache / "locked"
