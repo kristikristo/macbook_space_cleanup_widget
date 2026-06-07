@@ -5,6 +5,20 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+_DOCKER_SIZE_UNITS = {"B": 1, "kB": 1000, "MB": 1000**2, "GB": 1000**3, "TB": 1000**4}
+
+
+def _parse_docker_size(text: str) -> int:
+    """Parse docker's human sizes: '367.9MB (53%)' -> 367900000, '0B' -> 0.
+
+    Docker uses decimal units (kB = 1000), unlike disk.format_bytes.
+    """
+    value = text.split(" ")[0]  # drop the '(53%)' suffix
+    for unit in ("TB", "GB", "MB", "kB", "B"):  # longest suffix first
+        if value.endswith(unit):
+            return int(float(value[: -len(unit)]) * _DOCKER_SIZE_UNITS[unit])
+    raise ValueError(f"unrecognized docker size: {text!r}")
+
 
 def dir_size(path: Path) -> int:
     """Total size in bytes of all files under path.

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.cleanup import CleanResult, PathTarget, dir_size
+from src.cleanup import CleanResult, PathTarget, _parse_docker_size, dir_size
 
 
 def test_dir_size_empty_dir(tmp_path):
@@ -78,3 +78,23 @@ def test_path_target_clean_reports_failures_without_raising(tmp_path):
         assert any("stuck.bin" in f or "locked" in f for f in result.failed)
     finally:
         locked.chmod(0o700)  # restore so pytest can clean tmp_path
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("0B", 0),
+        ("616.9kB (11%)", 616900),
+        ("367.9MB (53%)", 367900000),
+        ("6.663GB (96%)", 6663000000),
+        ("2.923GB", 2923000000),
+        ("1.5TB", 1500000000000),
+    ],
+)
+def test_parse_docker_size(text, expected):
+    assert _parse_docker_size(text) == expected
+
+
+def test_parse_docker_size_rejects_garbage():
+    with pytest.raises(ValueError):
+        _parse_docker_size("lots")
