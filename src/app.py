@@ -120,6 +120,10 @@ class DiskSpaceApp(rumps.App):
         result = target.clean()
         with self._lock:
             self._cleaning.discard(target.key)
+            # Zero immediately so the applier can't re-enable the item with
+            # its stale pre-clean size; the re-scan below sets the real value.
+            self._sizes[target.key] = 0
+            self._sizes_dirty = True
             if result.failed:
                 shown = ", ".join(result.failed[:3])
                 if len(result.failed) > 3:
