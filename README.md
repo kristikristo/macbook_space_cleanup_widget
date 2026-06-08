@@ -60,9 +60,25 @@ python3 -m venv .venv
 .venv/bin/python src/main.py
 ```
 
-The 💾 icon appears in your menu bar. Use **Launch at Login** in the dropdown to
-start it automatically on boot (it writes a LaunchAgent plist under
-`~/Library/LaunchAgents/`).
+The 💾 icon appears in your menu bar.
+
+## Run at startup
+
+Click 💾 → **Launch at Login** so it shows a checkmark. That's it — the widget
+relaunches automatically every time you log in. Click it again to turn it off.
+
+Under the hood this writes a LaunchAgent plist to
+`~/Library/LaunchAgents/com.user.diskspacewidget.plist` and registers it with
+`launchctl`. The plist records the exact interpreter (`.venv/bin/python`) and
+script path, so it always starts with the virtualenv that has `rumps` installed.
+
+Two things worth knowing:
+
+- **Don't move or delete the project folder.** The startup entry hardcodes the
+  path to `.venv/bin/python` and `src/main.py`. If you relocate the repo, just
+  toggle Launch at Login off and on again to re-point it.
+- **It won't auto-restart if it crashes mid-session** (`KeepAlive` is `false`) —
+  only at login. That's the intended behavior for a menu bar utility.
 
 ## Tests
 
