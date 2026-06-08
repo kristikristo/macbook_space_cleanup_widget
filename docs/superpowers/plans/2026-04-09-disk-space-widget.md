@@ -55,7 +55,7 @@ Create `src/__init__.py` and `tests/__init__.py` as empty files.
 
 Run:
 ```bash
-cd /Users/kristikristo/Documents/Repositories/macbook_space_cleanup_widget
+cd ~/Documents/Repositories/macbook_space_cleanup_widget
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
