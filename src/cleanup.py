@@ -190,6 +190,8 @@ TARGETS = (
             "~/Library/Caches/ru.keepcoder.Telegram",
             "~/Library/Caches/com.spotify.client",
             "~/Library/Caches/com.todesktop.230313mzl4w4u92.ShipIt",
+            "~/Library/Caches/com.openai.codex/org.sparkle-project.Sparkle",
+            "~/Library/Caches/@granolaelectron-updater",
         ),
     ),
     DockerTarget(),
