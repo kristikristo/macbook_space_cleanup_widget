@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from src import app_bundle
+
 PLIST_LABEL = "com.user.diskspacewidget"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{PLIST_LABEL}.plist"
 
@@ -19,7 +21,7 @@ def _render_plist() -> bytes:
     return plistlib.dumps(
         {
             "Label": PLIST_LABEL,
-            "ProgramArguments": [sys.executable, script],
+            "ProgramArguments": [str(app_bundle.launcher_path()), sys.executable, script],
             "RunAtLoad": True,
             "KeepAlive": False,
         }
@@ -31,6 +33,7 @@ def enable() -> None:
 
     Idempotent: if already loaded, unload first (ignoring errors) then load.
     """
+    app_bundle.ensure()
     PLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
     PLIST_PATH.write_bytes(_render_plist())
 
