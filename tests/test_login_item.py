@@ -8,6 +8,7 @@ def tmp_plist(tmp_path, monkeypatch):
     """Redirect the plist path to a temp directory."""
     plist = tmp_path / "com.user.diskspacewidget.plist"
     monkeypatch.setattr(login_item, "PLIST_PATH", plist)
+    monkeypatch.setattr(login_item.app_bundle, "ensure", lambda: None)  # never build into ~/Applications
     return plist
 
 
@@ -73,3 +74,13 @@ def test_disable_is_safe_when_plist_missing(tmp_plist):
     assert not tmp_plist.exists()
     # Nothing to unload, so subprocess.run shouldn't be called.
     assert mock_run.call_count == 0
+
+
+def test_plist_starts_python_through_the_disk_space_launcher(tmp_plist):
+    import plistlib
+
+    with patch("src.login_item.subprocess.run"):
+        login_item.enable()
+    args = plistlib.loads(tmp_plist.read_bytes())["ProgramArguments"]
+    assert args[0].endswith("Disk Space.app/Contents/MacOS/disk-space")
+    assert args[2].endswith("src/main.py")

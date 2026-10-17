@@ -127,6 +127,7 @@ def test_low_space_alert_on_a_day_without_cleanup(fake_world, monkeypatch):
 def tmp_plist(tmp_path, monkeypatch):
     plist = tmp_path / "com.user.diskcleanup.plist"
     monkeypatch.setattr(schedule, "PLIST_PATH", plist)
+    monkeypatch.setattr(schedule.app_bundle, "ensure", lambda: None)  # never build into ~/Applications
     return plist
 
 
@@ -136,8 +137,9 @@ def test_schedule_plist_runs_daily_with_apply_and_scheduled(tmp_plist):
 
     data = plistlib.loads(tmp_plist.read_bytes())
     assert data["Label"] == schedule.PLIST_LABEL
-    assert data["ProgramArguments"][1].endswith("src/weekly_cleanup.py")
-    assert data["ProgramArguments"][2:] == ["--apply", "--scheduled"]
+    assert data["ProgramArguments"][0].endswith("Disk Space.app/Contents/MacOS/disk-space")
+    assert data["ProgramArguments"][2].endswith("src/weekly_cleanup.py")
+    assert data["ProgramArguments"][3:] == ["--apply", "--scheduled"]
     assert data["StartCalendarInterval"] == {"Hour": 10, "Minute": 0}
     assert "/opt/homebrew/bin" in data["EnvironmentVariables"]["PATH"]
     assert Path(data["StandardOutPath"]).name == "disk-cleanup.log"

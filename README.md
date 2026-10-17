@@ -72,6 +72,21 @@ Under the hood this writes a LaunchAgent plist to
 `launchctl`. The plist records the exact interpreter (`.venv/bin/python`) and
 script path, so it always starts with the virtualenv that has `rumps` installed.
 
+launchd does not start Python directly. It starts
+`~/Applications/Disk Space.app/Contents/MacOS/disk-space`, a ten-line launcher
+(`launcher/launcher.c`) that runs the program in its arguments. Enabling Launch
+at Login or installing the weekly cleanup builds and ad-hoc signs this app
+when it is missing or out of date (needs `clang` from the Xcode Command Line
+Tools). This has two effects:
+
+- **Login Items shows "Disk Space"**, not "python" from "Unknown Developer".
+- **A Homebrew Python upgrade does not block the widget.** macOS stores a code
+  requirement for the program a LaunchAgent starts. Homebrew's Python is
+  ad-hoc signed and gets a new identity with each build, so macOS refused to
+  start it after an upgrade (`last exit reason = OS_REASON_CODESIGNING` in
+  `launchctl print gui/$(id -u)/com.user.diskspacewidget`). The launcher only
+  changes when its source changes.
+
 Two things worth knowing:
 
 - **Don't move or delete the project folder.** The startup entry hardcodes the
@@ -134,6 +149,7 @@ tested. `src/app.py` is thin rumps glue verified by manual smoke test.
 - `src/worktrees.py` — finds finished git worktrees and removes them (pure)
 - `src/weekly_cleanup.py` — the daily job and its command line
 - `src/schedule.py` — the daily job's LaunchAgent plist (pure)
+- `src/app_bundle.py` — builds the "Disk Space" app that both LaunchAgents start
 - `src/app.py` — the [rumps](https://github.com/jaredks/rumps) menu bar app; a
   single background worker serializes all scanning and cleaning so the UI stays
   responsive

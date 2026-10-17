@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from src import app_bundle
+
 PLIST_LABEL = "com.user.diskcleanup"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{PLIST_LABEL}.plist"
 LOG_PATH = Path.home() / "Library" / "Logs" / "disk-cleanup.log"
@@ -24,7 +26,7 @@ def _render_plist() -> bytes:
     return plistlib.dumps(
         {
             "Label": PLIST_LABEL,
-            "ProgramArguments": [sys.executable, script, "--apply", "--scheduled"],
+            "ProgramArguments": [str(app_bundle.launcher_path()), sys.executable, script, "--apply", "--scheduled"],
             # launchd runs a missed time when the Mac wakes up.
             "StartCalendarInterval": {"Hour": RUN_HOUR, "Minute": 0},
             "EnvironmentVariables": {"PATH": _PATH},
@@ -41,6 +43,7 @@ def enable() -> None:
 
     Idempotent: if already loaded, unload first (ignoring errors) then load.
     """
+    app_bundle.ensure()
     PLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
     PLIST_PATH.write_bytes(_render_plist())
 
